@@ -51,4 +51,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(libs.androidx.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.glide)
 }
