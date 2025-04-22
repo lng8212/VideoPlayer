@@ -18,13 +18,11 @@ class VideoScrollDetector(
             recyclerView.findViewHolderForAdapterPosition(position) as? VideoViewHolder ?: return
         val rect = Rect()
         if (holder.itemView.getGlobalVisibleRect(rect)) {
-            // This item is visible — play it
             val video = videoMessages.getOrNull(position) ?: return
             videoPlayer.prepareAndPlay(
                 position,
                 video.assetPath,
-                holder.textureView,
-                holder.thumbnailView
+                holder.videoPlayerView
             )
         }
     }
@@ -41,15 +39,13 @@ class VideoScrollDetector(
                 recyclerView.findViewHolderForAdapterPosition(i) as? VideoViewHolder ?: continue
             val rect = Rect()
             if (holder.itemView.getGlobalVisibleRect(rect)) {
-                // This item is visible — play it
                 val video = videoMessages.getOrNull(i) ?: continue
                 videoPlayer.prepareAndPlay(
                     i,
                     video.assetPath,
-                    holder.textureView,
-                    holder.thumbnailView
+                    holder.videoPlayerView
                 )
-                break // Only play the first one found from bottom up
+                break
             }
         }
     }

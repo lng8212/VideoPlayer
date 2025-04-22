@@ -19,114 +19,178 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.recyclerview.widget.RecyclerView
 import com.longkd.videoplayer.interfaces.VideoPlayer
+import com.longkd.videoplayer.ui.custom.VideoPlayerView
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @OptIn(UnstableApi::class)
-class VideoPlayerManager(private val context: Context) : VideoPlayer {
+@Singleton
+class VideoPlayerManager @Inject constructor(@ApplicationContext private val context: Context) :
+    VideoPlayer {
 
-    private var player: ExoPlayer? = null
     override var currentPlayingPosition: Int = RecyclerView.NO_POSITION
         private set
     private val assetFactory = DataSource.Factory { AssetDataSource(context) }
     private var currentTextureView: TextureView? = null
     private var currentThumbnailView: ImageView? = null
+    private var savedSurfaceTexture: SurfaceTexture? = null
+    private var originalPlayerView: VideoPlayerView? = null
 
-    private fun getPlayer(): ExoPlayer {
-        if (player == null) {
-            player = ExoPlayer.Builder(context).build().apply {
-                playWhenReady = true
-                repeatMode = Player.REPEAT_MODE_OFF
 
-                addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(state: Int) {
-                        Log.d("ExoPlayer", "Playback state: $state")
-                    }
+    private val player: ExoPlayer by lazy {
+        ExoPlayer.Builder(context).build().apply {
+            playWhenReady = true
+            repeatMode = Player.REPEAT_MODE_OFF
 
-                    override fun onPlayerError(error: PlaybackException) {
-                        Log.e("ExoPlayer", "Player error: ${error.message}")
-                    }
-                })
-            }
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    Log.d("ExoPlayer", "Playback state: $state")
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e("ExoPlayer", "Player error: ${error.message}")
+                }
+            })
         }
-        return player!!
     }
 
     override fun prepareAndPlay(
         position: Int,
         assetPath: String,
-        textureView: TextureView,
-        thumbnailView: ImageView
+        videoPlayerView: VideoPlayerView
     ) {
-        val player = getPlayer()
 
-        // Ignore if already playing same position
-        if (position == currentPlayingPosition && textureView == currentTextureView) return
-
-        // Stop previous video
+        if (position == currentPlayingPosition && videoPlayerView.textureView == currentTextureView) return
+        originalPlayerView = videoPlayerView
         player.stop()
         player.clearMediaItems()
         player.clearVideoSurface()
 
-        // Show thumbnail and hide texture for old item
         currentTextureView?.visibility = View.INVISIBLE
         currentThumbnailView?.visibility = View.VISIBLE
 
-        // Update current views
         currentPlayingPosition = position
-        currentTextureView = textureView
-        currentThumbnailView = thumbnailView
+        currentTextureView = videoPlayerView.textureView
+        currentThumbnailView = videoPlayerView.thumbnailView
 
-        // Prepare views
-        textureView.visibility = View.VISIBLE
-        thumbnailView.visibility = View.INVISIBLE
+        videoPlayerView.textureView.visibility = View.VISIBLE
 
         val mediaItem = MediaItem.fromUri("asset:///$assetPath".toUri())
         val source = ProgressiveMediaSource.Factory(assetFactory).createMediaSource(mediaItem)
 
+        player.addListener(object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                videoPlayerView.thumbnailView.visibility = View.INVISIBLE
+                player.removeListener(this)
+            }
+        })
+
         player.setMediaSource(source)
         player.prepare()
 
-        setupSurfaceTexture(textureView)
+        setupSurfaceTexture(videoPlayerView)
     }
 
-    private fun setupSurfaceTexture(textureView: TextureView) {
+    private fun setupSurfaceTexture(videoPlayerView: VideoPlayerView) {
         fun attachSurface(surface: Surface) {
-            player?.setVideoSurface(surface)
-            player?.playWhenReady = true
+            player.setVideoSurface(surface)
+            player.playWhenReady = true
+            player.let { videoPlayerView.bindPlayer(it) }
         }
 
-        if (textureView.isAvailable) {
-            attachSurface(Surface(textureView.surfaceTexture))
+        if (videoPlayerView.textureView.isAvailable) {
+            attachSurface(Surface(videoPlayerView.textureView.surfaceTexture))
         } else {
-            textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(
-                    surface: SurfaceTexture,
-                    width: Int,
-                    height: Int
-                ) {
-                    attachSurface(Surface(surface))
-                }
+            videoPlayerView.textureView.surfaceTextureListener =
+                object : TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(
+                        surface: SurfaceTexture,
+                        width: Int,
+                        height: Int
+                    ) {
+                        savedSurfaceTexture = currentTextureView?.surfaceTexture
+                        attachSurface(Surface(surface))
+                        Log.d("xxxxx", "onSurfaceTextureAvailable: $width $height")
+                    }
 
-                override fun onSurfaceTextureSizeChanged(
-                    surface: SurfaceTexture,
-                    width: Int,
-                    height: Int
-                ) {
-                }
+                    override fun onSurfaceTextureSizeChanged(
+                        surface: SurfaceTexture,
+                        width: Int,
+                        height: Int
+                    ) {
+                        Log.d("xxxxx", "onSurfaceTextureSizeChanged: $width $height")
+                    }
 
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                        player.clearVideoSurface()
+                        return true
+                    }
+
+                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                        Log.d("xxxxx", "onSurfaceTextureUpdated: ")
+                    }
+                }
+        }
+    }
+
+    fun attachToFullscreen(videoPlayerView: VideoPlayerView) {
+        val currentPosition = player.currentPosition
+        val wasPlaying = player.isPlaying
+
+        // Clear previous surface
+        player.clearVideoSurface()
+
+        // Update references
+        currentTextureView = videoPlayerView.textureView
+        currentThumbnailView = videoPlayerView.thumbnailView
+
+        // Setup new surface
+        setupSurfaceTexture(videoPlayerView)
+
+        // Restore playback state
+        player.seekTo(currentPosition)
+        if (wasPlaying) {
+            player.play()
+        }
+    }
+
+
+    fun detachFromFullscreen() {
+        val currentPosition = player.currentPosition
+        val wasPlaying = player.isPlaying
+
+        player.clearVideoSurface()
+        originalPlayerView?.let {
+            currentTextureView = it.textureView
+            currentThumbnailView = it.thumbnailView
+            setupSurfaceTexture(it)
+            player.seekTo(currentPosition)
+            if (wasPlaying) {
+                player.play()
             }
         }
     }
 
+
     override fun pause() {
-        player?.pause()
+        player.pause()
     }
 
     override fun release() {
-        player?.release()
-        player = null
+        // Instead of fully releasing, just pause and reset
+        player.pause()
+        player.stop()
+        player.clearMediaItems()
+        player.clearVideoSurface()
         currentTextureView = null
         currentThumbnailView = null
     }
+
+    fun releaseCompletely() {
+        player.release()
+        currentTextureView = null
+        currentThumbnailView = null
+    }
+
 }

@@ -34,16 +34,13 @@ class ThumbnailService(
                 afd = context.assets.openFd(assetPath)
                 retriever.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
 
-                // Get a frame at 1 second
                 val original =
                     retriever.getFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST)
                 return@withContext original?.let {
-                    // Scale down to thumbnail size
-                    val width = 200
-                    val height = 112
+                    val width = 280
+                    val height = 200
                     val scaled = it.scale(width, height)
 
-                    // If we created a new bitmap, recycle the original
                     if (scaled != it) {
                         it.recycle()
                     }
@@ -54,7 +51,6 @@ class ThumbnailService(
                 Log.e("ThumbnailService", "Thumbnail generation failed: ${e.message}")
                 return@withContext null
             } finally {
-                // Clean up resources manually
                 try {
                     retriever?.release()
                     afd?.close()

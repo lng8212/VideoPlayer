@@ -13,15 +13,21 @@ import com.longkd.videoplayer.model.VideoMessage
 import com.longkd.videoplayer.player.VideoPlayerManager
 import com.longkd.videoplayer.services.ThumbnailService
 import com.longkd.videoplayer.utils.VideoScrollDetector
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.UUID
+import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var videoPlayerManager: VideoPlayerManager
+
+    @Inject
+    lateinit var videoPlayerManager: VideoPlayerManager
+
     private lateinit var thumbnailService: ThumbnailService
     private lateinit var videoScrollDetector: VideoScrollDetector
     private val videoMessages = mutableListOf<VideoMessage>()
@@ -40,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         // Initialize dependencies
         val thumbnailCache = ThumbnailCache()
         thumbnailService = ThumbnailService(this, thumbnailCache)
-        videoPlayerManager = VideoPlayerManager(this)
 
         // Load video messages (replace with your actual data source)
         loadVideoMessagesFromAssets()
@@ -103,19 +108,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Resume video playback when activity resumes
-        videoScrollDetector.detectAndPlayVisibleVideo()
+        binding.recyclerView.post {
+            videoScrollDetector.detectAndPlayVisibleVideo()
+        }
     }
 
     override fun onPause() {
         super.onPause()
-        // Pause video playback when activity pauses
         videoPlayerManager.pause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Release resources when activity is destroyed
-        videoPlayerManager.release()
+        videoPlayerManager.releaseCompletely()
     }
 }

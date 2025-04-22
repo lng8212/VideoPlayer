@@ -1,14 +1,12 @@
 package com.longkd.videoplayer.interfaces
 
-import android.view.TextureView
-import android.widget.ImageView
+import com.longkd.videoplayer.ui.custom.VideoPlayerView
 
 interface VideoPlayer {
     fun prepareAndPlay(
         position: Int,
         assetPath: String,
-        textureView: TextureView,
-        thumbnailView: ImageView
+        videoPlayerView: VideoPlayerView
     )
 
     fun pause()
