@@ -34,12 +34,18 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
     private val assetFactory = DataSource.Factory { AssetDataSource(context) }
     private var currentTextureView: TextureView? = null
     private var currentThumbnailView: ImageView? = null
-    private var savedSurfaceTexture: SurfaceTexture? = null
-    private var originalPlayerView: VideoPlayerView? = null
 
+    private var currentPlayerPosition: Int = -1
+    fun getCurrentPlayerPosition() = currentPlayerPosition
+    fun setCurrentPlayerPosition(position: Int) {
+        this.currentPlayerPosition = position
+    }
 
-    private val player: ExoPlayer by lazy {
-        ExoPlayer.Builder(context).build().apply {
+    var player: ExoPlayer
+        private set
+
+    init {
+        player = ExoPlayer.Builder(context).build().apply {
             playWhenReady = true
             repeatMode = Player.REPEAT_MODE_OFF
 
@@ -62,7 +68,6 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
     ) {
 
         if (position == currentPlayingPosition && videoPlayerView.textureView == currentTextureView) return
-        originalPlayerView = videoPlayerView
         player.stop()
         player.clearMediaItems()
         player.clearVideoSurface()
@@ -92,11 +97,15 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
         setupSurfaceTexture(videoPlayerView)
     }
 
-    private fun setupSurfaceTexture(videoPlayerView: VideoPlayerView) {
+    fun setupSurfaceTexture(
+        videoPlayerView: VideoPlayerView,
+        isContinuePlay: Boolean = false,
+        onFinishCallback: (() -> Unit)? = null
+    ) {
         fun attachSurface(surface: Surface) {
+            onFinishCallback?.invoke()
             player.setVideoSurface(surface)
-            player.playWhenReady = true
-            player.let { videoPlayerView.bindPlayer(it) }
+            player.let { videoPlayerView.bindPlayer(it, isContinuePlay) }
         }
 
         if (videoPlayerView.textureView.isAvailable) {
@@ -109,9 +118,7 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
                         width: Int,
                         height: Int
                     ) {
-                        savedSurfaceTexture = currentTextureView?.surfaceTexture
                         attachSurface(Surface(surface))
-                        Log.d("xxxxx", "onSurfaceTextureAvailable: $width $height")
                     }
 
                     override fun onSurfaceTextureSizeChanged(
@@ -119,56 +126,15 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
                         width: Int,
                         height: Int
                     ) {
-                        Log.d("xxxxx", "onSurfaceTextureSizeChanged: $width $height")
                     }
 
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                        player.clearVideoSurface()
-                        return true
+                        return false
                     }
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-                        Log.d("xxxxx", "onSurfaceTextureUpdated: ")
                     }
                 }
-        }
-    }
-
-    fun attachToFullscreen(videoPlayerView: VideoPlayerView) {
-        val currentPosition = player.currentPosition
-        val wasPlaying = player.isPlaying
-
-        // Clear previous surface
-        player.clearVideoSurface()
-
-        // Update references
-        currentTextureView = videoPlayerView.textureView
-        currentThumbnailView = videoPlayerView.thumbnailView
-
-        // Setup new surface
-        setupSurfaceTexture(videoPlayerView)
-
-        // Restore playback state
-        player.seekTo(currentPosition)
-        if (wasPlaying) {
-            player.play()
-        }
-    }
-
-
-    fun detachFromFullscreen() {
-        val currentPosition = player.currentPosition
-        val wasPlaying = player.isPlaying
-
-        player.clearVideoSurface()
-        originalPlayerView?.let {
-            currentTextureView = it.textureView
-            currentThumbnailView = it.thumbnailView
-            setupSurfaceTexture(it)
-            player.seekTo(currentPosition)
-            if (wasPlaying) {
-                player.play()
-            }
         }
     }
 
@@ -178,7 +144,6 @@ class VideoPlayerManager @Inject constructor(@ApplicationContext private val con
     }
 
     override fun release() {
-        // Instead of fully releasing, just pause and reset
         player.pause()
         player.stop()
         player.clearMediaItems()

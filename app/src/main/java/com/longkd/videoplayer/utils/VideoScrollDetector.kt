@@ -27,7 +27,7 @@ class VideoScrollDetector(
         }
     }
 
-    fun detectAndPlayVisibleVideo() {
+    fun detectAndPlayVisibleVideo(onGetPosition: (position: Int) -> Unit) {
         val layoutManager = recyclerView.layoutManager as? LinearLayoutManager ?: return
         val firstVisible = layoutManager.findFirstVisibleItemPosition()
         val lastVisible = layoutManager.findLastVisibleItemPosition()
@@ -40,6 +40,7 @@ class VideoScrollDetector(
             val rect = Rect()
             if (holder.itemView.getGlobalVisibleRect(rect)) {
                 val video = videoMessages.getOrNull(i) ?: continue
+                onGetPosition.invoke(i)
                 videoPlayer.prepareAndPlay(
                     i,
                     video.assetPath,

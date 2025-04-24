@@ -22,19 +22,15 @@ open class VideoPlayerView @JvmOverloads constructor(
 
     private var onToggleFullscreen: (() -> Unit)? = null
 
-    private var isFullScreen = false
 
     fun setOnToggleFullscreenListener(listener: () -> Unit) {
         onToggleFullscreen = listener
     }
 
-    fun setIsFullScreen(isFullScreen: Boolean) {
-        this.isFullScreen = isFullScreen
-        if (isFullScreen) {
-            binding.imgFullScreen.setImageResource(R.drawable.ic_exit_full_screen)
-            binding.seekbar.visibility = VISIBLE
-            binding.imgFullScreen.visibility = VISIBLE
-        } else binding.imgFullScreen.setImageResource(R.drawable.ic_full_screen)
+    fun setFullScreen() {
+        binding.imgFullScreen.setImageResource(R.drawable.ic_exit_full_screen)
+        binding.seekbar.visibility = VISIBLE
+        binding.imgFullScreen.visibility = VISIBLE
     }
 
     init {
@@ -63,7 +59,7 @@ open class VideoPlayerView @JvmOverloads constructor(
             .start()
     }
 
-    fun bindPlayer(player: ExoPlayer) {
+    fun bindPlayer(player: ExoPlayer, isContinuePlay: Boolean = false) {
         binding.btnPlayPause.setOnClickListener {
             if (player.isPlaying) {
                 player.pause()
@@ -77,7 +73,14 @@ open class VideoPlayerView @JvmOverloads constructor(
             }
         }
 
-        // Update SeekBar
+        if (isContinuePlay) {
+            binding.seekbar.max = player.duration.toInt()
+            binding.seekbar.progress = player.currentPosition.toInt()
+            thumbnailView.visibility = INVISIBLE
+            if (player.isPlaying) binding.btnPlayPause.setImageResource(R.drawable.ic_pause)
+            else binding.btnPlayPause.setImageResource(R.drawable.ic_play)
+        }
+
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) {
@@ -94,7 +97,6 @@ open class VideoPlayerView @JvmOverloads constructor(
             }
         })
 
-        // Poll seek position
         val handler = Handler(Looper.getMainLooper())
         val updateSeekBar = object : Runnable {
             override fun run() {

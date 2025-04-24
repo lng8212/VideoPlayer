@@ -14,7 +14,8 @@ import com.longkd.videoplayer.model.VideoMessage
 class VideoMessageAdapter(
     private val videos: List<VideoMessage>,
     private val thumbnailProvider: ThumbnailProvider,
-    private val onItemClick: (position: Int) -> Unit
+    private val onItemClick: (position: Int) -> Unit,
+    private val onFullScreenClick: (position: Int, transitionName: String) -> Unit
 ) : RecyclerView.Adapter<VideoViewHolder>() {
 
     override fun getItemViewType(position: Int): Int {
@@ -24,7 +25,7 @@ class VideoMessageAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoViewHolder {
         val layout = if (viewType == 0) R.layout.item_video_sent else R.layout.item_video_received
         val view = LayoutInflater.from(parent.context).inflate(layout, parent, false)
-        return VideoViewHolder(view, thumbnailProvider, onItemClick)
+        return VideoViewHolder(view, thumbnailProvider, onItemClick, onFullScreenClick)
     }
 
     override fun onBindViewHolder(holder: VideoViewHolder, position: Int) {
