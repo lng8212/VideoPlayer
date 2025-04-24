@@ -132,6 +132,7 @@ class ListVideoFragment : Fragment() {
             addSharedElement(textureView, transitionName)
             hide(this@ListVideoFragment)
             add(R.id.main_container, FullscreenVideoFragment::class.java, bundle)
+            addToBackStack(null)
         }
 
     }
@@ -163,15 +164,25 @@ class ListVideoFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        continueToPlay()
 //        binding.recyclerView.post {
 //            videoScrollDetector.detectAndPlayVisibleVideo()
 //        }
     }
 
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (!hidden) {
+            continueToPlay()
+        }
+    }
+
+    override fun onDestroyView() {
+        videoPlayerManager.release()
+        super.onDestroyView()
+    }
 
     override fun onDestroy() {
-        super.onDestroy()
         videoPlayerManager.releaseCompletely()
+        super.onDestroy()
     }
 }

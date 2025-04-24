@@ -57,6 +57,7 @@ class VideoViewHolder(
             if (isActive && bitmap != null && !bitmap.isRecycled) {
                 thumbnailProvider.cacheThumbnail(cacheKey, bitmap)
                 videoPlayerView.thumbnailView.setImageBitmap(bitmap)
+
             }
         }
     }
